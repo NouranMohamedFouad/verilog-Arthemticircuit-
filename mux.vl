@@ -1,0 +1,169 @@
+--------------------------------------------------------------------------------------------//total=14 Components --->  3 FA, 3 4x1Mux, 3 2x1Mux,4 NOT,1 AND
+//58 test cases 
+
+// half adder using 1 XOR gate and 1 AND gate
+module half_adder(output sum, output carry, input a, input b); //taking only 2 inputs and results of sum and carry
+   xor(sum, a, b);   //taking into xor to outputs the sum
+   and(carry, a, b); //and gate to outputs the carry 
+endmodule
+// full adder using 2 half adders and 1 OR gate
+module full_adder(output sum, output carry, input x, input y, input z);// full adder to be able to add three inputs
+   wire s1, c1, c2;                                                    
+   half_adder h1(s1, c1, x, y);
+   half_adder h2(sum, c2, s1, z);  //add the result of the first half adder to the third input
+   or(carry, c1, c2); // make OR because it is impossible to be 1 in the 2 carries 
+endmodule
+//2x1 multiplexer using 2 AND gates and 1 OR gate
+module mux2_1(output sum,input S0,input I0, input I1); //selects only 1 between 2 options
+    wire s0dash, O1, O2; //O is the options genrated by the selection
+    not (s0dash,S0);     //taking the complement of s0
+    and (O1,I0,s0dash),(O2,I1,S0);  // if all inputs are equal to 1 so this AND gate will be selected
+    or(sum,O1,O2); //passing only the choosen selection from the AND gates
+endmodule 
+//4x1 multiplexer using 4 AND gates and 1 OR gate
+module mux4_1(output sum,input S0,input S1,input I0, input I1,input I2,input I3); //selects only 1 output between 4 options
+    wire s0dash, s1dash, O1, O2, O3, O4; //O is the 4 options genrated by 2 selections
+    not (s0dash,S0),(s1dash, S1);  //getting the complement of the 2 selections
+    and (O1,I0,s0dash,s1dash),(O2,I1,S0,s1dash),(O3,I2,s0dash,S1),(O4,I3,S0,S1); //if all inputs are equal to 1 so this AND gate will be selected
+    or(sum, O1, O2, O3, O4); //passing only the choosen selection from the AND gates  
+endmodule   
+// Arthemtic Circuit using 4 NOT gates,3 4x1 Multipleixer,3 2x1 Multipleixer and 1 AND  
+module Arthemtic(output wire[2:0] G,output Cout,input wire[2:0] A,input wire[2:0] B,input S0,input S1,input wire[2:0] logic0,input Cin);
+    wire mux1,mux2,mux3,mux4,mux5,mux6,S2;//6 output mux(3 2x1 and 3 4x1) and S2 selection for 2x1 mux 
+    wire[2:0] logic0_dash; //needed for selection 00 to apply A-1
+    wire[2:0] B_dash;  //store the complement of B
+    wire[2:0] carry;  //store the carry of each bit calculated by FA
+    not(B_dash[0],B[0]); //} 
+    not(B_dash[1],B[1]); //}setting complement of each bit of B
+    not(B_dash[2],B[2]); //}
+    not(logic0_dash[0],logic0[0]);//taking complement of logic 0
+    not(logic0_dash[1],logic0[1]); 
+    not(logic0_dash[2],logic0[2]);  
+    and(S2,S0,S1); // getting Selction of 2x1 mux according to Selection of 4x1 mux 
+    // ex.: S0 =0 and S1=1 so S2=0 and 2x1 mux will output A
+    mux4_1  m4_0(mux1,S0,S1,logic0_dash[0],B[0],B_dash[0],B_dash[0]);//select output of the first bit of B or the first bit complement or logic(1) 
+    mux2_1  m2_0(mux2,S2,A[0],logic0[0]); //select output of the first bit of A or logic(1) 
+    full_adder FA0(G[0],carry[0],mux1,mux2,Cin); //summation of the first 2 multiplexer and input carry 
+    mux4_1  m4_1(mux3,S0,S1,logic0_dash[1],B[1],B_dash[1],B_dash[1]); //select output of the secound bit of B or the secound bit complement or logic(1) 
+    mux2_1  m2_1(mux4,S2,A[1],logic0[1]); //select output of the Second bit of A 
+    full_adder FA1(G[1],carry[1],mux3,mux4,carry[0]); //summation of the second 2 multiplexer and input carry 
+    mux4_1  m4_2(mux5,S0,S1,logic0_dash[2],B[2],B_dash[2],B_dash[2]); //select output of the Third bit B or the first bit complement or logic(1) 
+    mux2_1  m2_2(mux6,S2,A[2],logic0[2]);  //select output of the Third bit A or logic(1) 
+    full_adder FA2(G[2],Cout,mux5,mux6,carry[1]);  //summation of the Third 2 multiplexer and input carry 
+endmodule
+
+module Arth_test();
+      reg s0,s1,s2,Cin; // Selection Inputs and Carry input
+      reg[2:0] A;  // Array of 3 bits of A
+      reg[2:0] B;  // Array of 3 bits of B
+      reg[2:0] logic0; // 
+      wire[2:0] G;  // Array of Final Output  G //accepts only from -3 to 3,because there is 1 bit for the sign..the remaining 2 bits will represent till 3
+      wire[1:0] carry; // array of the internal Carries
+      wire cout;       // outputs the final carry                                        
+      Arthemtic arth(G,cout,A,B,s0,s1,logic0,Cin); //calling the bits of A and B with the selections and choose from them
+      initialbv
+      begin  //taking the values and print them
+         $monitor($time," s0=%b, s1=%b, A=%b, B=%b, logic0=%b , Cin=%b , Cout=%b, G=%b ",s0,s1,A,B,logic0,Cin,cout,G); 
+      ////////I0->A-1 ///////////  s0=0 s1=0
+            //when logic=1: accepts A in range(-2,-1,0,1,2,3)
+            s0=0;s1=0;A[0]=0;A[1]=1;A[2]=1;logic0[0]=0;logic0[1]=0;logic0[2]=0;Cin=0; // A=-2  110  G=101  //bit 3=1 because it is negative
+        #10 s0=0;s1=0;A[0]=1;A[1]=1;A[2]=1;logic0[0]=0;logic0[1]=0;logic0[2]=0;Cin=0; // A=-1  111  G=110  //bit 3=1 because it is negative
+        #10 s0=0;s1=0;A[0]=0;A[1]=0;A[2]=0;logic0[0]=0;logic0[1]=0;logic0[2]=0;Cin=0; // A=0   000  G=111
+        #10 s0=0;s1=0;A[0]=1;A[1]=0;A[2]=0;logic0[0]=0;logic0[1]=0;logic0[2]=0;Cin=0; // A=1   001  G=000
+        #10 s0=0;s1=0;A[0]=0;A[1]=1;A[2]=0;logic0[0]=0;logic0[1]=0;logic0[2]=0;Cin=0; // A=2   010  G=001
+        #10 s0=0;s1=0;A[0]=1;A[1]=1;A[2]=0;logic0[0]=0;logic0[1]=0;logic0[2]=0;Cin=0; // A=3   011  G=010
+      ///////I1-> A+B///////  s0=1 s1=0
+        //when A=-3: accepts B in range(0,1,2,3)                       //bit 3=0 because they are all positive
+        #10 s0=1;s1=0;A[0]=1;B[0]=0;A[1]=0;B[1]=0;A[2]=1;B[2]=0;Cin=0; //B=0 000  G=101
+        #10 s0=1;s1=0;A[0]=1;B[0]=1;A[1]=0;B[1]=0;A[2]=1;B[2]=0;Cin=0; //B=1 001  G=110
+        #10 s0=1;s1=0;A[0]=1;B[0]=0;A[1]=0;B[1]=1;A[2]=1;B[2]=0;Cin=0; //B=2 010  G=111
+        #10 s0=1;s1=0;A[0]=1;B[0]=1;A[1]=0;B[1]=1;A[2]=1;B[2]=0;Cin=0; //B=3 011  G=000
+        //when A=-2: accepts B in range(-1,0,1,2,3)                  
+        #10 s0=1;s1=0;A[0]=0;B[0]=1;A[1]=1;B[1]=1;A[2]=1;B[2]=1;Cin=0; //B=-1  111  G=101  //bit 3=1 because it is negative
+        #10 s0=1;s1=0;A[0]=0;B[0]=0;A[1]=1;B[1]=0;A[2]=1;B[2]=0;Cin=0; //B=0   000  G=110
+        #10 s0=1;s1=0;A[0]=0;B[0]=1;A[1]=1;B[1]=0;A[2]=1;B[2]=0;Cin=0; //B=1   001  G=111
+        #10 s0=1;s1=0;A[0]=0;B[0]=0;A[1]=1;B[1]=1;A[2]=1;B[2]=0;Cin=0; //B=2   010  G=000
+        #10 s0=1;s1=0;A[0]=0;B[0]=1;A[1]=1;B[1]=1;A[2]=1;B[2]=0;Cin=0; //B=3   011  G=001
+        //when A=-1: accepts B in range(-2,-1,0,1,2,3) 
+        #10 s0=1;s1=0;A[0]=1;B[0]=0;A[1]=1;B[1]=1;A[2]=1;B[2]=1;Cin=0; //B=-2  110  G=101  //bit 3=1 because it is negative               
+        #10 s0=1;s1=0;A[0]=1;B[0]=1;A[1]=1;B[1]=1;A[2]=1;B[2]=1;Cin=0; //B=-1  111  G=110  //bit 3=1 because it is negative
+        #10 s0=1;s1=0;A[0]=1;B[0]=0;A[1]=1;B[1]=0;A[2]=1;B[2]=0;Cin=0; //B=0   000  G=111
+        #10 s0=1;s1=0;A[0]=1;B[0]=1;A[1]=1;B[1]=0;A[2]=1;B[2]=0;Cin=0; //B=1   001  G=000
+        #10 s0=1;s1=0;A[0]=1;B[0]=0;A[1]=1;B[1]=1;A[2]=1;B[2]=0;Cin=0; //B=2   010  G=001
+        #10 s0=1;s1=0;A[0]=1;B[0]=1;A[1]=1;B[1]=1;A[2]=1;B[2]=0;Cin=0; //B=3   011  G=010
+        //when A=0: accepts B in range(-3,-2,-1,0,1,2,3) 
+        #10 s0=1;s1=0;A[0]=0;B[0]=1;A[1]=0;B[1]=0;A[2]=0;B[2]=1;Cin=0; //B=-3  101  G=101  //bit 3=1 because it is negative               
+        #10 s0=1;s1=0;A[0]=0;B[0]=0;A[1]=0;B[1]=1;A[2]=0;B[2]=1;Cin=0; //B=-2  110  G=110  //bit 3=1 because it is negative               
+        #10 s0=1;s1=0;A[0]=0;B[0]=1;A[1]=0;B[1]=1;A[2]=0;B[2]=1;Cin=0; //B=-1  111  G=111  //bit 3=1 because it is negative
+        #10 s0=1;s1=0;A[0]=0;B[0]=0;A[1]=0;B[1]=0;A[2]=0;B[2]=0;Cin=0; //B=0   000  G=000
+        #10 s0=1;s1=0;A[0]=0;B[0]=1;A[1]=0;B[1]=0;A[2]=0;B[2]=0;Cin=0; //B=1   001  G=001
+        #10 s0=1;s1=0;A[0]=0;B[0]=0;A[1]=0;B[1]=1;A[2]=0;B[2]=0;Cin=0; //B=2   010  G=010
+        #10 s0=1;s1=0;A[0]=0;B[0]=1;A[1]=0;B[1]=1;A[2]=0;B[2]=0;Cin=0; //B=3   011  G=011
+        //when A=1: accepts B in range(-3,-2,-1,0,1,2) 
+        #10 s0=1;s1=0;A[0]=1;B[0]=1;A[1]=0;B[1]=0;A[2]=0;B[2]=1;Cin=0; //B=-3  101  G=110  //bit 3=1 because it is negative               
+        #10 s0=1;s1=0;A[0]=1;B[0]=0;A[1]=0;B[1]=1;A[2]=0;B[2]=1;Cin=0; //B=-2  110  G=111  //bit 3=1 because it is negative               
+        #10 s0=1;s1=0;A[0]=1;B[0]=1;A[1]=0;B[1]=1;A[2]=0;B[2]=1;Cin=0; //B=-1  111  G=000  //bit 3=1 because it is negative
+        #10 s0=1;s1=0;A[0]=1;B[0]=0;A[1]=0;B[1]=0;A[2]=0;B[2]=0;Cin=0; //B=0   000  G=001
+        #10 s0=1;s1=0;A[0]=1;B[0]=1;A[1]=0;B[1]=0;A[2]=0;B[2]=0;Cin=0; //B=1   001  G=010
+        #10 s0=1;s1=0;A[0]=1;B[0]=0;A[1]=0;B[1]=1;A[2]=0;B[2]=0;Cin=0; //B=2   010  G=011
+        //when A=2: accepts B in range(-3,-2,-1,0,1) 
+        #10 s0=1;s1=0;A[0]=0;B[0]=1;A[1]=1;B[1]=0;A[2]=0;B[2]=1;Cin=0; //B=-3  101  G=111  //bit 3=1 because it is negative               
+        #10 s0=1;s1=0;A[0]=0;B[0]=0;A[1]=1;B[1]=1;A[2]=0;B[2]=1;Cin=0; //B=-2  110  G=000  //bit 3=1 because it is negative               
+        #10 s0=1;s1=0;A[0]=0;B[0]=1;A[1]=1;B[1]=1;A[2]=0;B[2]=1;Cin=0; //B=-1  111  G=001  //bit 3=1 because it is negative
+        #10 s0=1;s1=0;A[0]=0;B[0]=0;A[1]=1;B[1]=0;A[2]=0;B[2]=0;Cin=0; //B=0   000  G=010
+        #10 s0=1;s1=0;A[0]=0;B[0]=1;A[1]=1;B[1]=0;A[2]=0;B[2]=0;Cin=0; //B=1   001  G=011
+        //when A=3: accepts B in range(-3,-2,-1,0) 
+
+      /////I2-> A-B////// s0=0 s0=1
+        //when A=-3: accepts B in range(-3,-2,-1,0) 
+        #10 s0=0;s1=1;A[0]=1;B[0]=1;A[1]=0;B[1]=0;A[2]=1;B[2]=1;Cin=1; //B=-3 101  G=000  bit 3=1 because it is negative 
+        #10 s0=0;s1=1;A[0]=1;B[0]=0;A[1]=0;B[1]=1;A[2]=1;B[2]=1;Cin=1; //B=-2 110  G=111  bit 3=1 because it is negative 
+        #10 s0=0;s1=1;A[0]=1;B[0]=1;A[1]=0;B[1]=1;A[2]=1;B[2]=1;Cin=1; //B=-1 111  G=110  bit 3=1 because it is negative 
+        #10 s0=0;s1=1;A[0]=1;B[0]=0;A[1]=0;B[1]=0;A[2]=1;B[2]=0;Cin=1; //B=0  000  G=101  
+        //when A=-2 accepts B in range(-3,-2,-1,0,1)
+        #10 s0=0;s1=1;A[0]=0;B[0]=1;A[1]=1;B[1]=0;A[2]=1;B[2]=1;Cin=1; //B=-3 101  G=001  bit 3=1 because it is negative 
+        #10 s0=0;s1=1;A[0]=0;B[0]=0;A[1]=1;B[1]=1;A[2]=1;B[2]=1;Cin=1; //B=-2 110  G=000  bit 3=1 because it is negative 
+        #10 s0=0;s1=1;A[0]=0;B[0]=1;A[1]=1;B[1]=1;A[2]=1;B[2]=1;Cin=1; //B=-1 111  G=111  bit 3=1 because it is negative 
+        #10 s0=0;s1=1;A[0]=0;B[0]=0;A[1]=1;B[1]=0;A[2]=1;B[2]=0;Cin=1; //B=0  000  G=110
+        #10 s0=0;s1=1;A[0]=0;B[0]=1;A[1]=1;B[1]=0;A[2]=1;B[2]=0;Cin=1; //B=1  001  G=101
+        //when A=-1 accepts B in range(-3,-2,-1,0,1,2)
+        #10 s0=0;s1=1;A[0]=1;B[0]=1;A[1]=1;B[1]=0;A[2]=1;B[2]=1;Cin=1; //B=-3 101  G=010  bit 3=1 because it is negative 
+        #10 s0=0;s1=1;A[0]=1;B[0]=0;A[1]=1;B[1]=1;A[2]=1;B[2]=1;Cin=1; //B=-2 110  G=001  bit 3=1 because it is negative 
+        #10 s0=0;s1=1;A[0]=1;B[0]=1;A[1]=1;B[1]=1;A[2]=1;B[2]=1;Cin=1; //B=-1 111  G=000  bit 3=1 because it is negative 
+        #10 s0=0;s1=1;A[0]=1;B[0]=0;A[1]=1;B[1]=0;A[2]=1;B[2]=0;Cin=1; //B=0  000  G=111 
+        #10 s0=0;s1=1;A[0]=1;B[0]=1;A[1]=1;B[1]=0;A[2]=1;B[2]=0;Cin=1; //B=1  001  G=110
+        #10 s0=0;s1=1;A[0]=1;B[0]=0;A[1]=1;B[1]=1;A[2]=1;B[2]=0;Cin=1; //B=2  010  G=101
+        //When A=0 accepts B in range(-3,-2,-1,0,1,2,3) 
+        #10 s0=0;s1=1;A[0]=0;B[0]=1;A[1]=0;B[1]=0;A[2]=0;B[2]=1;Cin=1; //B=-3 101  G=011  bit 3=1 because it is negative 
+        #10 s0=0;s1=1;A[0]=0;B[0]=0;A[1]=0;B[1]=1;A[2]=0;B[2]=1;Cin=1; //B=-2 110  G=010  bit 3=1 because it is negative 
+        #10 s0=0;s1=1;A[0]=0;B[0]=1;A[1]=0;B[1]=1;A[2]=0;B[2]=1;Cin=1; //B=-1 111  G=001  bit 3=1 because it is negative 
+        #10 s0=0;s1=1;A[0]=0;B[0]=0;A[1]=0;B[1]=0;A[2]=0;B[2]=0;Cin=1; //B=0  000  G=000
+        #10 s0=0;s1=1;A[0]=0;B[0]=1;A[1]=0;B[1]=0;A[2]=0;B[2]=0;Cin=1; //B=1  001  G=111
+        #10 s0=0;s1=1;A[0]=0;B[0]=0;A[1]=0;B[1]=1;A[2]=0;B[2]=0;Cin=1; //B=2  010  G=110
+        #10 s0=0;s1=1;A[0]=0;B[0]=1;A[1]=0;B[1]=1;A[2]=0;B[2]=0;Cin=1; //B=3  011  G=101
+        //When A=1 accepts B in range(-2,-1,0,1,2,3)
+        #10 s0=0;s1=1;A[0]=1;B[0]=0;A[1]=0;B[1]=1;A[2]=0;B[2]=1;Cin=1; //B=-2 110  G=011  bit 3=1 because it is negative 
+        #10 s0=0;s1=1;A[0]=1;B[0]=1;A[1]=0;B[1]=1;A[2]=0;B[2]=1;Cin=1; //B=-1 111  G=010  bit 3=1 because it is negative 
+        #10 s0=0;s1=1;A[0]=1;B[0]=0;A[1]=0;B[1]=0;A[2]=0;B[2]=0;Cin=1; //B=0  000  G=001  
+        #10 s0=0;s1=1;A[0]=1;B[0]=1;A[1]=0;B[1]=0;A[2]=0;B[2]=0;Cin=1; //B=1  001  G=000
+        #10 s0=0;s1=1;A[0]=1;B[0]=0;A[1]=0;B[1]=1;A[2]=0;B[2]=0;Cin=1; //B=2  010  G=111
+        #10 s0=0;s1=1;A[0]=1;B[0]=1;A[1]=0;B[1]=1;A[2]=0;B[2]=0;Cin=1; //B=3  011  G=110
+        //When A=2 accepts B in range(-1,0,1,2,3)
+
+        //When A=3 accepts B in range(0,1,2,3)    
+        #10 s0=0;s1=1;A[0]=1;B[0]=0;A[1]=1;B[1]=0;A[2]=0;B[2]=0;Cin=1; //B=0  000  G=011
+        #10 s0=0;s1=1;A[0]=1;B[0]=1;A[1]=1;B[1]=0;A[2]=0;B[2]=0;Cin=1; //B=1  001  G=010
+        #10 s0=0;s1=1;A[0]=1;B[0]=0;A[1]=1;B[1]=1;A[2]=0;B[2]=0;Cin=1; //B=2  010  G=001
+        #10 s0=0;s1=1;A[0]=1;B[0]=1;A[1]=1;B[1]=1;A[2]=0;B[2]=0;Cin=1; //B=3  011  G=000
+      /////I1-> -B///// s0=1 s1=1
+        //when logic=0: accepts B in range(-3,-2,-1,0,1,2,3) 
+        #10 s0=1;s1=1;A[0]=0;B[0]=1;A[1]=0;B[1]=0;A[2]=0;B[2]=1;logic0[0]=0;logic0[1]=0;logic0[2]=0;Cin=1; //B=-3 101 G=011 //bit 3=1 because it is negative
+        #10 s0=1;s1=1;A[0]=0;B[0]=0;A[1]=0;B[1]=1;A[2]=0;B[2]=1;logic0[0]=0;logic0[1]=0;logic0[2]=0;Cin=1; //B=-2 110 G=010 //bit 3=1 because it is negative
+        #10 s0=1;s1=1;A[0]=0;B[0]=1;A[1]=0;B[1]=1;A[2]=0;B[2]=1;logic0[0]=0;logic0[1]=0;logic0[2]=0;Cin=1; //B=-1 111 G=001 //bit 3=1 because it is negative
+        #10 s0=1;s1=1;A[0]=0;B[0]=0;A[1]=0;B[1]=0;A[2]=0;B[2]=0;logic0[0]=0;logic0[1]=0;logic0[2]=0;Cin=1; //B=0  000 G=000
+        #10 s0=1;s1=1;A[0]=0;B[0]=1;A[1]=0;B[1]=0;A[2]=0;B[2]=0;logic0[0]=0;logic0[1]=0;logic0[2]=0;Cin=1; //B=1  001 G=111
+        #10 s0=1;s1=1;A[0]=0;B[0]=0;A[1]=0;B[1]=1;A[2]=0;B[2]=0;logic0[0]=0;logic0[1]=0;logic0[2]=0;Cin=1; //B=2  010 G=110
+        #10 s0=1;s1=1;A[0]=0;B[0]=1;A[1]=0;B[1]=1;A[2]=0;B[2]=0;logic0[0]=0;logic0[1]=0;logic0[2]=0;Cin=1; //B=3  011 G=101
+      $finish; //   
+      end
+endmodule
